@@ -19,7 +19,8 @@ h1 {
 }
 
 h2 {
-    font-size: 16px;
+    font-size: 22px;
+    line-height: 28px;
 }
 
 h3 {
@@ -724,13 +725,14 @@ body.canvas-menu.mini-navbar nav.navbar-static-side {
     background-color: #1ab394;
     border-color: #1ab394;
     color: #FFFFFF;
+    font-size: 30px;
 }
 
 .btn-primary:hover,
 .btn-primary:focus,
 .btn-primary:active,
-.btn-primary.active,
-.open .dropdown-toggle.btn-primary {
+.btn-primary.active,-
+.open .dropdowntoggle.btn-primary {
     background-color: #18a689;
     border-color: #18a689;
     color: #FFFFFF;
@@ -2004,7 +2006,7 @@ table.dataTable thead .sorting:after {
     list-style: none outside none;
     margin: 0;
     padding: 0;
-    font-size: 14px;
+    font-size: 18px;
 }
 
 .todo-list.small-list {
@@ -2037,6 +2039,8 @@ table.dataTable thead .sorting:after {
     color: inherit;
     margin-bottom: 2px;
     padding: 10px;
+    line-height: 30px;
+    margin-top: 20px;
 }
 
 .todo-list .handle {
@@ -4016,6 +4020,10 @@ code {
     display: table;
 }
 
+.col-sm-12{
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+}   
 .ibox-title {
     -moz-border-bottom-colors: none;
     -moz-border-left-colors: none;
@@ -4037,7 +4045,7 @@ code {
 .ibox-content {
     background-color: #ffffff;
     color: inherit;
-    padding: 15px 20px 20px 20px;
+    padding: 15px 10px 20px 10px;
     border-color: #e7eaec;
     -webkit-border-image: none;
     -o-border-image: none;
