@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+    <title>xxx 培训系统 -- xxx项目</title>
+
+
+    <link rel="shortcut icon" href="favicon.ico"> <link href="css/bootstrap.min.css?v=3.3.7" rel="stylesheet">
+    <link href="css/font-awesome.css?v=4.4.0" rel="stylesheet">
+    <link href="css/plugins/iCheck/custom.css" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-3">
+                <div class="widget style1">
+                    <div class="row">
+                        <div class="col-xs-4 text-center">
+                            <i class="fa fa-trophy fa-5x"></i>
+                        </div>
+                        <div class="col-xs-8 text-right">
+                            <span> Questions </span>
+                            <h2 class="font-bold">Q 2 / 3</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox-content">
+                    <h2>What is the limit for giving gift when we visit customers ?</h2>
+                    <ul class="todo-list m-t">
+                        <li>
+                            <input type="radio" value="1" name="optionsRadios" class="i-checks"  />
+                            <span class="m-l-xs">A: $50.</span>
+                        </li>
+                        <li>
+                            <input type="radio" value="2" name="optionsRadios" class="i-checks"  />
+                            <span class="m-l-xs">B: $100.</span>
+                        </li>
+                        <li>
+                            <input type="radio" value="3" name="optionsRadios" class="i-checks"  />
+                            <span class="m-l-xs">C: $500.</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox-content">
+                    <a class="btn btn-primary" style="width: 100%;" href="vote3.html" target="_self">Next</a>
+                </div>
+            </div>
+        </div>  
+    </div>
+
+    <!-- 全局js -->
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/jquery-ui-1.10.4.min.js"></script>
+    <script src="js/bootstrap.min.js?v=3.3.7"></script>
+
+
+
+    <!-- iCheck -->
+    <script src="js/plugins/iCheck/icheck.min.js"></script>
+
+    <script>
+        $(document).ready(function () {
+
+            $('.i-checks').iCheck({
+                checkboxClass: 'icheckbox_square-green',
+                radioClass: 'iradio_square-green',
+            });
+
+            $(".todo-list").sortable({
+                placeholder: "sort-highlight",
+                handle: ".handle",
+                forcePlaceholderSize: true,
+                zIndex: 999999
+            }).disableSelection();;
+
+        });
+    </script>
+
+</body>
+
+</html>
