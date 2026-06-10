@@ -3,575 +3,838 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>流程任务管理面板 - 任务条件与分配模拟</title>
-    <!-- 引入 jQuery, Vue.js, 以及基础样式 -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <title>文档中心 - 多格式文件预览（稳定版）</title>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue@2.7.16/dist/vue.js"></script>
-    <!-- 使用清爽的字体和现代风格 -->
+    <!-- PDF.js 核心库 - 使用稳定版本 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <style>
         * {
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-        }
-        body {
-            background: #f0f2f5;
             margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+
+        .file-sidebar {
+            width: 280px;
+            background: white;
+            border-right: 1px solid #e4e7ed;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 20px 16px;
+            background: #fafbfc;
+            border-bottom: 1px solid #eaeef2;
+        }
+
+        .sidebar-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .file-list {
+            flex: 1;
+            list-style: none;
+            padding: 8px 0;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            margin: 2px 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+
+        .file-item:hover {
+            background: #ecf5ff;
+        }
+
+        .file-item.active {
+            background: #e6f7ff;
+            border-left: 4px solid #1890ff;
+        }
+
+        .file-icon {
+            font-size: 24px;
+            margin-right: 12px;
+            width: 32px;
+            text-align: center;
+        }
+
+        .file-info {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .file-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1f2f3d;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-type {
+            font-size: 12px;
+            color: #909399;
+            margin-top: 4px;
+        }
+
+        .content-viewer {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #e9ecef;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            background: white;
+            padding: 10px 20px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .nav-btn {
+            background: #f8f9fa;
+            border: 1px solid #ced4da;
+            padding: 6px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: #e9ecef;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .page-controls, .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f8f9fa;
+            padding: 4px 12px;
+            border-radius: 24px;
+            border: 1px solid #e2e6ea;
+        }
+
+        .page-controls button, .zoom-btn {
+            background: white;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+        }
+
+        .page-controls button:hover:not(:disabled), .zoom-btn:hover {
+            background: #e9ecef;
+        }
+
+        .separator {
+            width: 1px;
+            height: 24px;
+            background: #dee2e6;
+        }
+
+        .render-area {
+            flex: 1;
+            overflow-y: auto;
             padding: 24px;
+            background: #f1f3f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            position: relative;
+        }
+
+        .content-wrapper {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            padding: 20px;
+            display: inline-block;
+            min-width: 200px;
+            max-width: 100%;
+        }
+
+        .image-view {
+            display: inline-block;
+            text-align: center;
+        }
+
+        .image-view img {
+            display: block;
+            max-width: none;
+            height: auto;
+            transition: transform 0.2s ease;
+            cursor: zoom-in;
+            transform-origin: top left;
+        }
+
+        .text-view {
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 70vh;
+            overflow: auto;
+        }
+
+        .pdf-view {
+            display: inline-block;
+            text-align: center;
+        }
+
+        .pdf-canvas {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background: white;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,240,0.9);
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            z-index: 20;
         }
-        .app-container {
-            max-width: 1400px;
-            width: 100%;
-            background: white;
-            border-radius: 28px;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
-            overflow: hidden;
-            padding: 24px 28px 36px 28px;
-            transition: all 0.2s;
-        }
-        h1 {
-            font-size: 1.8rem;
-            font-weight: 600;
-            margin: 0 0 8px 0;
-            color: #1e293b;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .sub {
-            color: #475569;
-            border-left: 4px solid #3b82f6;
-            padding-left: 16px;
-            margin: 6px 0 24px 0;
-            font-size: 0.9rem;
-        }
-        .search-area {
-            background: #f8fafc;
-            border-radius: 20px;
-            padding: 20px 24px;
-            margin-bottom: 32px;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            gap: 16px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-            border: 1px solid #e2e8f0;
-        }
-        .input-group {
-            flex: 2;
-            min-width: 220px;
-        }
-        .input-group label {
-            display: block;
-            font-weight: 500;
-            color: #334155;
-            margin-bottom: 6px;
-            font-size: 0.85rem;
-        }
-        .input-group input {
-            width: 100%;
-            padding: 12px 16px;
-            border-radius: 16px;
-            border: 1.5px solid #cbd5e1;
-            font-size: 1rem;
-            transition: 0.2s;
-            background: white;
-        }
-        .input-group input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
-        }
-        button {
-            background: #3b82f6;
-            border: none;
-            color: white;
-            padding: 12px 28px;
-            border-radius: 40px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: 0.2s;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        button:hover {
-            background: #2563eb;
-            transform: translateY(-1px);
-            box-shadow: 0 6px 12px rgba(59,130,246,0.2);
-        }
-        button:active {
-            transform: translateY(1px);
-        }
-        .select-group {
-            flex: 1.5;
-            min-width: 240px;
-        }
-        .select-group label {
-            font-weight: 500;
-            color: #334155;
-            margin-bottom: 6px;
-            display: block;
-            font-size: 0.85rem;
-        }
-        select {
-            width: 100%;
-            padding: 12px 16px;
-            border-radius: 16px;
-            border: 1.5px solid #cbd5e1;
-            background: white;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        select:focus {
-            border-color: #3b82f6;
-            outline: none;
-        }
-        .info-badge {
-            background: #eef2ff;
-            padding: 6px 12px;
-            border-radius: 40px;
-            font-size: 0.8rem;
-            color: #1e40af;
-        }
-        .card-title {
-            font-size: 1.3rem;
-            font-weight: 600;
-            margin: 24px 0 16px 0;
-            color: #0f172a;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 8px;
-        }
-        .table-wrapper {
-            overflow-x: auto;
-            border-radius: 20px;
-            border: 1px solid #eef2ff;
-            background: white;
-            margin-bottom: 28px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
-        th {
-            background: #f1f5f9;
-            padding: 14px 16px;
-            text-align: left;
-            font-weight: 600;
-            color: #1e293b;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        td {
-            padding: 12px 16px;
-            border-bottom: 1px solid #f0f2f5;
-            vertical-align: top;
-        }
-        tr:last-child td {
-            border-bottom: none;
-        }
-        .task-name {
-            font-weight: 600;
-            color: #0c4a6e;
-            cursor: help;
-            border-bottom: 1px dashed #94a3b8;
-            position: relative;
-            display: inline-block;
-        }
-        .group-name {
-            font-weight: 500;
-            color: #2d3c5e;
-            cursor: help;
-            background: #f1f5f9;
-            padding: 4px 8px;
-            border-radius: 20px;
-            display: inline-block;
-            font-size: 0.85rem;
-            border-bottom: 1px dashed #64748b;
-        }
-        /* 浮动层tooltip 自定义 */
-        .hover-tooltip {
-            position: absolute;
-            background: #1e293b;
-            color: #f1f5f9;
-            padding: 10px 14px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            max-width: 320px;
-            word-wrap: break-word;
-            white-space: normal;
-            z-index: 1000;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-            pointer-events: none;
-            transition: opacity 0.1s;
-            backdrop-filter: blur(2px);
-            line-height: 1.4;
-            font-weight: normal;
-        }
-        .empty-message {
-            text-align: center;
-            padding: 48px 20px;
-            color: #64748b;
-            font-style: italic;
-        }
-        .loading-shade {
-            display: inline-block;
-            width: 18px;
-            height: 18px;
-            border: 2px solid #cbd5e1;
-            border-top-color: #3b82f6;
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #ddd;
+            border-top: 4px solid #3498db;
             border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-            margin-right: 8px;
-            vertical-align: middle;
+            animation: spin 0.8s linear infinite;
         }
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        footer {
-            text-align: center;
-            margin-top: 28px;
-            font-size: 0.75rem;
-            color: #94a3b8;
+
+        .loading-text {
+            margin-left: 12px;
+            font-size: 16px;
+            color: #2c3e50;
         }
-        hr {
-            margin: 12px 0;
-            border-color: #eef2ff;
+
+        .render-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            color: #4ecdc4;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-family: monospace;
+            z-index: 100;
+            pointer-events: none;
+            max-width: 300px;
         }
-        @media (max-width: 680px) {
-            .app-container { padding: 20px; }
-            .search-area { flex-direction: column; align-items: stretch; }
-            button { justify-content: center; }
+
+        .error-badge {
+            background: #d63031;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 8px;
         }
     </style>
 </head>
 <body>
 <div id="app">
     <div class="app-container">
-        <h1>📋 流程任务编排中心</h1>
-        <div class="sub">按流程ID检索 → 查看任务条件映射 → 获取最终优先级合并任务列表及分配组</div>
-
-        <!-- 搜索区域 -->
-        <div class="search-area">
-            <div class="input-group">
-                <label>🔍 流程ID (Process ID)</label>
-                <input type="text" v-model="processId" placeholder="例如: PROC_1001, PR-2025" @keyup.enter="searchProcess">
+        <div class="file-sidebar">
+            <div class="sidebar-header">
+                <h3>📁 文档列表</h3>
             </div>
-            <button @click="searchProcess" :disabled="loading">
-                <span v-if="loading" class="loading-shade"></span>
-                <span v-else>🔎</span>
-                {{ loading ? '查询中...' : '搜索任务' }}
-            </button>
-            <div class="select-group">
-                <label>📌 关联Task条目 (快速定位)</label>
-                <select v-model="selectedTaskName" @change="onSelectTaskChange">
-                    <option value="">-- 所有任务 --</option>
-                    <option v-for="task in taskNameList" :value="task">{{ task }}</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- 表格1: 当前ID匹配到哪些task的condition -->
-        <div class="card-title">
-            <span>📌 表1 · 任务条件映射</span>
-            <span class="info-badge" v-if="conditionTasks.length">共 {{ conditionTasks.length }} 个任务</span>
-        </div>
-        <div class="table-wrapper">
-            <table v-if="conditionTasks.length > 0">
-                <thead>
-                <tr><th>Task 名称</th><th>关联条件 (Condition) 明细</th></tr>
-                </thead>
-                <tbody>
-                    <tr v-for="item in filteredConditionTasks" :key="item.taskId">
-                        <td style="width: 30%;">
-                            <span class="task-name" 
-                                  @mouseenter="showTooltip($event, formatConditionTooltip(item.conditions))"
-                                  @mouseleave="hideTooltip">
-                                {{ item.taskName }}
-                            </span>
-                        </td>
-                        <td>
-                            <div v-for="(cond, idx) in item.conditions" :key="idx" style="margin-bottom: 6px;">
-                                🔹 {{ cond.conditionKey }} : {{ cond.conditionValue }}
-                                <span v-if="cond.operator"> ({{ cond.operator }})</span>
-                            </div>
-                            <div v-if="!item.conditions.length" class="empty-message" style="padding:0; text-align:left;">无具体条件</div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            <div v-else class="empty-message">
-                ⚡ 暂无任务条件数据，请先输入流程ID并点击搜索。
-            </div>
+            <ul class="file-list">
+                <li v-for="file in fileList" :key="file.id" 
+                    class="file-item" 
+                    :class="{ active: currentFile && currentFile.id === file.id }"
+                    @click="switchFile(file)">
+                    <div class="file-icon">
+                        <span v-if="file.type === 'pdf'">📄</span>
+                        <span v-else-if="file.type === 'image'">🖼️</span>
+                        <span v-else-if="file.type === 'text'">📃</span>
+                    </div>
+                    <div class="file-info">
+                        <div class="file-name">{{ file.name }}</div>
+                        <div class="file-type">{{ file.type.toUpperCase() }}</div>
+                    </div>
+                </li>
+            </ul>
         </div>
 
-        <!-- 表格二: 最终通过优先级和合并以后获取到的最终task列表以及每个task被分配的组名称 -->
-        <div class="card-title">
-            <span>⚙️ 表2 · 最终任务列表 (优先级合并后) + 分配组</span>
-            <span class="info-badge" v-if="finalTasks.length">优先级聚合 · {{ finalTasks.length }} 项</span>
-        </div>
-        <div class="table-wrapper">
-            <table v-if="finalTasks.length > 0">
-                <thead>
-                    <tr><th style="width:35%">Task 名称</th><th>优先级 (Priority)</th><th style="width:35%">分配的组名称 (Group)</th></tr>
-                </thead>
-                <tbody>
-                    <tr v-for="task in filteredFinalTasks" :key="task.taskId">
-                        <td><strong>{{ task.taskName }}</strong></td>
-                        <td>
-                            <span :class="{'priority-high': task.priority > 5, 'priority-mid': task.priority <=5 && task.priority > 2}">
-                                ⭐ {{ task.priority }}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="group-name"
-                                  @mouseenter="showTooltip($event, formatGroupDetail(task.assignedGroup))"
-                                  @mouseleave="hideTooltip">
-                                {{ task.assignedGroup.groupName || '未分配' }}
-                            </span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            <div v-else class="empty-message">
-                📭 暂无最终任务数据，请执行搜索并获取后台模拟数据。
+        <div class="content-viewer">
+            <div class="toolbar">
+                <div class="nav-buttons">
+                    <button class="nav-btn" @click="prevFile" :disabled="!currentFile || fileIndex === 0">◀ 上一个</button>
+                    <button class="nav-btn" @click="nextFile" :disabled="!currentFile || fileIndex === fileList.length-1">下一个 ▶</button>
+                </div>
+                <div class="separator"></div>
+                <div class="page-controls" v-if="currentFile && currentFile.type === 'pdf' && pdfDoc">
+                    <button @click="prevPage" :disabled="currentPage <= 1">◀</button>
+                    <span class="page-info">第 {{ currentPage }} / {{ totalPages }} 页</span>
+                    <button @click="nextPage" :disabled="currentPage >= totalPages">▶</button>
+                </div>
+                <div class="zoom-controls" v-if="currentFile && (currentFile.type === 'pdf' || currentFile.type === 'image')">
+                    <button class="zoom-btn" @click="zoomOut">-</button>
+                    <span class="zoom-level">{{ Math.round(zoomLevel * 100) }}%</span>
+                    <button class="zoom-btn" @click="zoomIn">+</button>
+                    <button class="zoom-btn" @click="resetZoom">重置</button>
+                </div>
+                <div style="flex:1"></div>
+                <div style="font-size:13px; color:#6c757d;">{{ currentFile ? currentFile.name : '请选择文件' }}</div>
+            </div>
+
+            <div class="render-area" ref="renderArea">
+                <div v-if="loading" class="loading-overlay">
+                    <div class="spinner"></div>
+                    <div class="loading-text">加载文件中...</div>
+                </div>
+                <div class="content-wrapper" v-show="!loading" ref="contentWrapper">
+                    <div v-if="currentFile && currentFile.type === 'pdf'" class="pdf-view">
+                        <canvas id="pdf-canvas" class="pdf-canvas" 
+                                :style="{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left' }"></canvas>
+                        <div v-if="totalPages > 1" style="text-align:center; margin-top:12px; color:#666;">
+                            第 {{ currentPage }} / {{ totalPages }} 页
+                        </div>
+                    </div>
+                    <div v-else-if="currentFile && currentFile.type === 'image'" class="image-view">
+                        <img :src="imageSrc" ref="previewImage" 
+                             :style="{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left' }" 
+                             @click="toggleImageZoom"
+                             @load="onImageLoad" />
+                    </div>
+                    <div v-else-if="currentFile && currentFile.type === 'text'" class="text-view">
+                        <pre>{{ textContent }}</pre>
+                    </div>
+                    <div v-else class="text-view" style="color:gray;">请从左侧选择文件</div>
+                </div>
             </div>
         </div>
-        <footer>💡 提示: 鼠标悬浮在【Task名称】可查看详细条件值匹配；悬浮在【组名称】可查看该组的成员/权限详情。</footer>
     </div>
-    <!-- 动态tooltip浮动层容器 -->
-    <div id="dynamicTooltip" class="hover-tooltip" style="position:fixed; display:none; z-index:9999;"></div>
+    <div class="render-status" v-if="renderStatus" v-html="renderStatus"></div>
 </div>
 
 <script>
-    // 模拟后台数据服务 (通过Ajax风格, 实际使用$.ajax 模拟)
-    // 根据流程ID, 综合多表数据 (表1: 任务条件映射; 表2: 优先级合并后 + 组分配)
-    // 为了展示完整逻辑，构建一个异步模拟函数 getTasksByProcessId(processId)
+    // 配置 PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
     
-    // ---------- 模拟数据库 ----------
-    // 预置流程相关数据集:
-    // 流程任务条件表 (表1概念: 每个流程下某个task有哪些condition)
-    // 最终任务表通过优先级和合并规则得出 (优先级合并: 同一任务可能多条, 取最高优先级; 组根据条件匹配分配)
+    // 禁用 PDF.js 的某些严格检查，提高容错性
+    pdfjsLib.disableFontFace = false;
     
-    const mockDatabase = {
-        // 流程PROC_1001: 采购流程
-        "PROC_1001": {
-            // 任务条件映射(原始多表条件)
-            taskConditions: [
-                { taskId: "T001", taskName: "采购申请审批", conditions: [
-                    { conditionKey: "amount", conditionValue: ">5000", operator: ">" },
-                    { conditionKey: "dept", conditionValue: "财务部", operator: "=" }
-                ]},
-                { taskId: "T002", taskName: "合同法务审核", conditions: [
-                    { conditionKey: "contract_value", conditionValue: ">=20000", operator: ">=" },
-                    { conditionKey: "legal_required", conditionValue: "true", operator: "==" }
-                ]},
-                { taskId: "T003", taskName: "采购主管复核", conditions: [
-                    { conditionKey: "amount", conditionValue: ">1000", operator: ">" }
-                ]}
-            ],
-            // 最终任务列表(经过优先级合并和组分配)
-            finalTaskAllocations: [
-                { taskId: "T001", taskName: "采购申请审批", priority: 8, assignedGroup: { groupName: "财务审批组", members: "张财务, 李会计", description: "负责金额大于5k的采购单审批" } },
-                { taskId: "T002", taskName: "合同法务审核", priority: 9, assignedGroup: { groupName: "法务合规组", members: "王律师, 赵法务", description: "审核合同条款及法律风险" } },
-                { taskId: "T003", taskName: "采购主管复核", priority: 5, assignedGroup: { groupName: "采购管理组", members: "孙主管, 周经理", description: "日常采购复核与供应商协调" } }
-            ]
+    // ==================== 辅助函数 ====================
+    
+    /**
+     * 将 Base64 字符串转换为 Uint8Array
+     */
+    function base64ToUint8Array(base64) {
+        try {
+            // 移除可能的前缀
+            let cleanBase64 = base64;
+            if (base64.includes(',')) {
+                cleanBase64 = base64.split(',')[1];
+            }
+            const binaryString = atob(cleanBase64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes;
+        } catch (e) {
+            console.error('Base64转换失败:', e);
+            throw new Error('Base64解码失败');
+        }
+    }
+    
+    /**
+     * 将字符串转换为 Uint8Array（使用 TextEncoder）
+     */
+    function stringToUint8Array(str) {
+        const encoder = new TextEncoder();
+        return encoder.encode(str);
+    }
+    
+    /**
+     * 智能转换 PDF 数据为 Uint8Array
+     * 支持：Uint8Array, ArrayBuffer, Base64字符串, 普通字符串
+     */
+    function normalizePdfData(data) {
+        // 已经是 Uint8Array
+        if (data instanceof Uint8Array) {
+            return data;
+        }
+        // ArrayBuffer
+        if (data instanceof ArrayBuffer) {
+            return new Uint8Array(data);
+        }
+        // 字符串
+        if (typeof data === 'string') {
+            // 检查是否是有效的 PDF 文件头
+            const trimmed = data.trim();
+            // 如果是 Base64 编码（以 JVBER 开头或包含 PDF 特征）
+            if (trimmed.startsWith('JVBER') || trimmed.substring(0, 20).includes('JVBER')) {
+                try {
+                    return base64ToUint8Array(trimmed);
+                } catch (e) {
+                    console.warn('Base64转换失败，尝试字符串转换');
+                }
+            }
+            // 检查是否以 %PDF- 开头（原始 PDF 字符串）
+            if (trimmed.startsWith('%PDF-')) {
+                return stringToUint8Array(trimmed);
+            }
+            // 尝试作为 Base64 处理（带 data URL 前缀）
+            if (trimmed.includes('base64,')) {
+                const base64Part = trimmed.split('base64,')[1];
+                if (base64Part) {
+                    return base64ToUint8Array(base64Part);
+                }
+            }
+            // 最后尝试直接字符串转换
+            return stringToUint8Array(trimmed);
+        }
+        // 其他情况
+        throw new Error('不支持的 PDF 数据格式');
+    }
+    
+    /**
+     * 验证 PDF 数据是否有效
+     */
+    function isValidPdfData(data) {
+        if (!data || data.length < 8) return false;
+        // PDF 文件头应该是 %PDF-
+        const header = String.fromCharCode(data[0], data[1], data[2], data[3], data[4]);
+        return header === '%PDF-';
+    }
+    
+    // ==================== 模拟后端API（使用更稳定的PDF数据）====================
+    
+    // 生成一个简单但完全有效的 PDF（使用标准 PDF 格式）
+    // 这个 PDF 不使用 Flate 压缩，避免解压错误
+    const SIMPLE_PDF_BASE64 = 'JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZwogL1BhZ2VzIDIgMCBSCj4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcwogL0tpZHMgWzMgMCBSXQogL0NvdW50IDEKPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UKIC9QYXJlbnQgMiAwIFIKIC9SZXNvdXJjZXMgPDwKL0ZvbnQgPDwgL0YxIDQgMCBSID4+Ci9Qcm9jU2V0IFsvUERGIC9UZXh0XQo+PgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQovQ29udGVudHMgNSAwIFIKPj4KZW5kb2JqCjQgMCBvYmoKPDwgL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iago1IDAgb2JqCjw8IC9MZW5ndGggNzAgPj4Kc3RyZWFtCkJUCi9GMSAyNCBUZgoxMDAgNzAwIFRkCihQREYgUmVuZGVyaW5nIFN1Y2Nlc3NmdWwhIC0g5rKz5Y+R5oiQ5YqfKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxMCAwMDAwMCBuIAowMDAwMDAwMDU5IDAwMDAwIG4gCjAwMDAwMDAxMTMgMDAwMDAgbiAKMDAwMDAwMDI0MiAwMDAwMCBuIAowMDAwMDAwMzA5IDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNDI2CiUlRU9G';
+    
+    const CHINESE_PDF_BASE64 = 'JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZwogL1BhZ2VzIDIgMCBSCj4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcwogL0tpZHMgWzMgMCBSXQogL0NvdW50IDEKPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UKIC9QYXJlbnQgMiAwIFIKIC9SZXNvdXJjZXMgPDwKL0ZvbnQgPDwgL0YxIDQgMCBSID4+Cj4+Ci9NZWRpYUJveCBbMCAwIDYxMiA3OTJdCi9Db250ZW50cyA1IDAgUgo+PgplbmRvYmoKNCAwIG9iago8PCAvVHlwZSAvRm9udAovU3VidHlwZSAvVHlwZTEKL0Jhc2VGb250IC9IZWx2ZXRpY2EKPj4KZW5kb2JqCjUgMCBvYmoKPDwgL0xlbmd0aCAxMjAgPj4Kc3RyZWFtCkJUCi9GMSAyNCBUZgoxMDAgNzAwIFRkCijkuK3mlofnvJPlrZcgLSBQREYg5aaH5qC857uE5Y+R77yBKSBUagowIC0yMCBURCjmt7Hlip/lvIDlj5EpIFRqCjAgLTIwIFREKOaVsOaNruW5tuWQjuWPkeWkqikgVGoKMCAtMjAgVEQo5Y2V5bCG5aaH5qC85p2l5rqQ77yBKCBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxMCAwMDAwMCBuIAowMDAwMDAwMDU5IDAwMDAwIG4gCjAwMDAwMDAxMTMgMDAwMDAgbiAKMDAwMDAwMDIyNiAwMDAwMCBuIAowMDAwMDAwMjkzIDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNDUwCiUlRU9G';
+    
+    const MOCK_API = {
+        getFileList() {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve([
+                        { id: 1, name: '测试PDF（英文）.pdf', type: 'pdf', fileKey: 'simple.pdf' },
+                        { id: 2, name: '测试PDF（中文）.pdf', type: 'pdf', fileKey: 'chinese.pdf' },
+                        { id: 3, name: '风景图片.jpg', type: 'image', fileKey: 'landscape.jpg' },
+                        { id: 4, name: '说明文档.txt', type: 'text', fileKey: 'readme.txt' },
+                        { id: 5, name: 'Logo图片.png', type: 'image', fileKey: 'logo.png' }
+                    ]);
+                }, 200);
+            });
         },
-        "PR-2025": {
-            taskConditions: [
-                { taskId: "T101", taskName: "需求分析", conditions: [ { conditionKey: "project_type", conditionValue: "ERP升级", operator: "=" }, { conditionKey: "budget", conditionValue: ">100k", operator: ">" } ] },
-                { taskId: "T102", taskName: "技术评审", conditions: [ { conditionKey: "tech_complexity", conditionValue: "高", operator: "=" } ] },
-                { taskId: "T103", taskName: "资源分配", conditions: [ { conditionKey: "team_size", conditionValue: ">=5", operator: ">=" } ] }
-            ],
-            finalTaskAllocations: [
-                { taskId: "T101", taskName: "需求分析", priority: 7, assignedGroup: { groupName: "产品规划组", members: "产品经理A, 业务分析师B", description: "负责需求调研与分析文档" } },
-                { taskId: "T102", taskName: "技术评审", priority: 9, assignedGroup: { groupName: "架构委员会", members: "架构师X, 技术总监Y", description: "技术方案评审与决策" } },
-                { taskId: "T103", taskName: "资源分配", priority: 6, assignedGroup: { groupName: "项目管理办公室(PMO)", members: "PMO专员, 资源经理", description: "协调人力及预算" } }
-            ]
-        },
-        "FLOW_DEMO_88": {
-            taskConditions: [
-                { taskId: "T201", taskName: "数据预检", conditions: [ { conditionKey: "data_volume", conditionValue: ">10000", operator: ">" }, { conditionKey: "source_type", conditionValue: "Kafka", operator: "=" } ] },
-                { taskId: "T202", taskName: "ETL清洗", conditions: [ { conditionKey: "dirty_rate", conditionValue: ">5%", operator: ">" } ] }
-            ],
-            finalTaskAllocations: [
-                { taskId: "T201", taskName: "数据预检", priority: 4, assignedGroup: { groupName: "数据质量组", members: "数据工程师张, 质量专员李", description: "检查数据完整性及异常" } },
-                { taskId: "T202", taskName: "ETL清洗", priority: 8, assignedGroup: { groupName: "数据集成组", members: "ETL开发王, 运维刘", description: "数据转换与清洗逻辑实现" } }
-            ]
-        },
-        "DEFAULT_EMPTY": {
-            taskConditions: [],
-            finalTaskAllocations: []
+        getFileData(fileKey, type) {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    if (type === 'pdf') {
+                        if (fileKey === 'simple.pdf') {
+                            // 返回 Uint8Array 格式，避免字符串转换问题
+                            resolve(base64ToUint8Array(SIMPLE_PDF_BASE64));
+                        } else {
+                            resolve(base64ToUint8Array(CHINESE_PDF_BASE64));
+                        }
+                    } else if (type === 'image') {
+                        let imgUrl = '';
+                        if (fileKey === 'landscape.jpg') {
+                            imgUrl = 'https://picsum.photos/id/1015/800/600';
+                        } else {
+                            imgUrl = 'https://picsum.photos/id/1/400/400';
+                        }
+                        resolve(imgUrl);
+                    } else if (type === 'text') {
+                        let content = "这是一个示例文本文档。\n\n欢迎使用文档预览系统。\n\n功能特点：\n1. 支持 PDF 文件预览（使用 PDF.js）\n2. 支持图片预览和缩放\n3. 支持文本文件预览\n4. 左右文件切换\n5. PDF 上下翻页\n\n✨ 本次优化：\n- 修复了 Flate 解压错误\n- 使用标准 PDF 格式，避免压缩问题\n- 增强了数据格式转换的容错性";
+                        resolve(content);
+                    } else {
+                        reject('不支持的类型');
+                    }
+                }, 300);
+            });
         }
     };
     
-    // 辅助: 获取流程数据 (模拟ajax延迟)
-    function fetchProcessData(processId) {
-        return new Promise((resolve, reject) => {
-            // 模拟网络请求延迟300~600ms
-            setTimeout(() => {
-                // 大小写不敏感但为了演示，保留原始key匹配
-                let data = mockDatabase[processId];
-                if (!data) {
-                    // 如果不存在则返回空数据，但给一个友好提示（不reject，让页面显示空表格）
-                    data = mockDatabase["DEFAULT_EMPTY"];
-                }
-                // 深拷贝，避免引用修改
-                const cloned = {
-                    taskConditions: JSON.parse(JSON.stringify(data.taskConditions)),
-                    finalTaskAllocations: JSON.parse(JSON.stringify(data.finalTaskAllocations))
-                };
-                resolve(cloned);
-            }, 400);
-        });
-    }
-    
-    // Vue实例
+    // ==================== Vue 应用 ====================
     new Vue({
         el: '#app',
         data: {
-            processId: '',           // 用户输入的流程ID
+            fileList: [],
+            currentFile: null,
             loading: false,
-            // 表1原始条件任务列表
-            conditionTasks: [],      // 结构: [{taskId, taskName, conditions:[]}]
-            // 表2最终任务列表
-            finalTasks: [],          // 结构: [{taskId, taskName, priority, assignedGroup:{groupName, members, description}}]
-            selectedTaskName: '',    // 下拉过滤任务名
-            tooltipTimer: null
+            renderStatus: '',
+            // PDF 相关
+            pdfDoc: null,
+            currentPage: 1,
+            totalPages: 0,
+            // 图片相关
+            zoomLevel: 1.0,
+            imageSrc: null,
+            textContent: '',
+            imageNaturalWidth: 0,
+            imageNaturalHeight: 0,
+            // 缓存
+            fileDataCache: new Map(),
+            // 错误计数
+            pdfErrorCount: 0
         },
         computed: {
-            // 获取所有任务名称集合 (用于下拉选择)
-            taskNameList: function() {
-                let names = [];
-                this.conditionTasks.forEach(t => {
-                    if(t.taskName) names.push(t.taskName);
-                });
-                // 同时从最终任务里补全可能名称 (但表1基本覆盖所有出现任务)
-                this.finalTasks.forEach(t => {
-                    if(t.taskName && !names.includes(t.taskName)) names.push(t.taskName);
-                });
-                return [...new Set(names)]; // 去重
-            },
-            // 过滤表1（根据select选中的任务名）
-            filteredConditionTasks: function() {
-                if(!this.selectedTaskName) return this.conditionTasks;
-                return this.conditionTasks.filter(task => task.taskName === this.selectedTaskName);
-            },
-            // 过滤最终任务列表（根据选中的任务名）
-            filteredFinalTasks: function() {
-                if(!this.selectedTaskName) return this.finalTasks;
-                return this.finalTasks.filter(task => task.taskName === this.selectedTaskName);
+            fileIndex() {
+                if (!this.currentFile) return -1;
+                return this.fileList.findIndex(f => f.id === this.currentFile.id);
             }
         },
-        methods: {
-            searchProcess: function() {
-                let pid = this.processId.trim();
-                if(pid === "") {
-                    alert("请输入流程ID (例如 PROC_1001, PR-2025, FLOW_DEMO_88)");
-                    return;
-                }
-                this.loading = true;
-                // 调用模拟Ajax获取多表数据
-                fetchProcessData(pid).then(res => {
-                    // 更新表1 和 表2
-                    this.conditionTasks = res.taskConditions || [];
-                    this.finalTasks = res.finalTaskAllocations || [];
-                    // 重置选中的task过滤项
-                    this.selectedTaskName = '';
-                    this.loading = false;
-                    // 如果数据为空给出提示(可隐式)
-                    if(this.conditionTasks.length === 0 && this.finalTasks.length === 0) {
-                        alert(`未找到流程ID "${pid}" 的相关任务数据，可尝试: PROC_1001, PR-2025, FLOW_DEMO_88`);
-                    }
-                }).catch(err => {
-                    console.error(err);
-                    this.loading = false;
-                    alert("请求异常，请重试");
-                });
-            },
-            // 当下拉选择发生变化时可高亮对应区域（前端自动过滤），可选额外滚动效果
-            onSelectTaskChange: function() {
-                if(this.selectedTaskName) {
-                    // 简单定位: 不用滚动，让表格过滤即可
-                }
-            },
-            // 格式化task条件展示tooltip内容 (显示多个条件数值匹配)
-            formatConditionTooltip: function(conditions) {
-                if(!conditions || conditions.length === 0) return "无特定条件约束";
-                let lines = conditions.map(cond => {
-                    return `${cond.conditionKey} ${cond.operator || '='} ${cond.conditionValue}`;
-                });
-                return "📐 条件匹配规则:\n" + lines.join("\n");
-            },
-            // 格式化组的详情tooltip
-            formatGroupDetail: function(group) {
-                if(!group || !group.groupName) return "未分配组";
-                let details = `🏢 组名称: ${group.groupName}\n👥 成员: ${group.members || '未指定'}\n📝 职责: ${group.description || '无描述'}`;
-                return details;
-            },
-            // 展示浮动层 (全局tooltip)
-            showTooltip: function(event, content) {
-                const tooltipEl = document.getElementById('dynamicTooltip');
-                if(!tooltipEl) return;
-                // 清空之前的延迟隐藏
-                if(this.tooltipTimer) clearTimeout(this.tooltipTimer);
-                tooltipEl.innerHTML = content.replace(/\n/g, '<br>');
-                tooltipEl.style.display = 'block';
-                // 计算位置 (基于鼠标)
-                let x = event.clientX + 15;
-                let y = event.clientY + 15;
-                // 边界粗略防止超出右侧
-                const rect = tooltipEl.getBoundingClientRect();
-                // 因为display刚刚显示，没有实际宽高，可异步获取尺寸
-                setTimeout(() => {
-                    const finalRect = tooltipEl.getBoundingClientRect();
-                    let left = x;
-                    let top = y;
-                    if(left + finalRect.width > window.innerWidth - 10) {
-                        left = event.clientX - finalRect.width - 10;
-                    }
-                    if(top + finalRect.height > window.innerHeight - 10) {
-                        top = event.clientY - finalRect.height - 10;
-                    }
-                    tooltipEl.style.left = left + 'px';
-                    tooltipEl.style.top = top + 'px';
-                }, 10);
-            },
-            hideTooltip: function() {
-                const tooltipEl = document.getElementById('dynamicTooltip');
-                if(tooltipEl) {
-                    // 加一点延迟以避免快速移动闪烁
-                    this.tooltipTimer = setTimeout(() => {
-                        if(tooltipEl) tooltipEl.style.display = 'none';
-                    }, 100);
+        watch: {
+            currentFile(newFile, oldFile) {
+                if (newFile && (!oldFile || oldFile.id !== newFile.id)) {
+                    this.loadFileContent();
                 }
             }
         },
         mounted() {
-            // 初始时可以默认请求一个样例使页面不空，或者展示占位，但保留用户主动搜索
-            // 为了体验，首次自动展示一个示例? 也可设置默认流程ID，但最好让用户自己操作，仅预填充占位符
-            this.processId = "PROC_1001";
-            // 自动加载示例 (展示说明)
-            this.searchProcess();
+            this.init();
         },
-        // 清理tooltip延迟
-        beforeDestroy() {
-            if(this.tooltipTimer) clearTimeout(this.tooltipTimer);
-        }
-    });
-    
-    // 附加全局鼠标移动时可能微调tooltip位置已在show中处理。
-    // 确保点击页面其他地方可隐藏没必要处理
-</script>
-</body>
-</html>
+        methods: {
+            async init() {
+                this.loading = true;
+                this.showStatus('正在加载文件列表...', 'info');
+                try {
+                    const list = await MOCK_API.getFileList();
+                    this.fileList = list;
+                    if (list.length > 0) {
+                        this.currentFile = list[0];
+                    }
+                    this.showStatus('✅ 就绪', 'success');
+                    setTimeout(() => this.clearStatus(), 2000);
+                } catch (e) {
+                    console.error(e);
+                    this.showStatus('❌ 文件列表加载失败', 'error');
+                } finally {
+                    this.loading = false;
+                }
+            },
+            showStatus(msg, type) {
+                const color = type === 'error' ? '#d63031' : (type === 'success' ? '#00b894' : '#4ecdc4');
+                this.renderStatus = `<span style="color:${color}">${msg}</span>`;
+            },
+            clearStatus() {
+                if (this.renderStatus && !this.renderStatus.includes('❌')) {
+                    setTimeout(() => { this.renderStatus = ''; }, 1000);
+                }
+            },
+            async switchFile(file) {
+                if (this.currentFile && this.currentFile.id === file.id) return;
+                this.currentFile = file;
+            },
+            async loadFileContent() {
+                if (!this.currentFile) return;
+                this.resetViewState();
+                this.loading = true;
+                this.showStatus(`正在加载 ${this.currentFile.name}...`, 'info');
+                
+                const file = this.currentFile;
+                const cacheKey = `${file.id}_${file.type}`;
+                
+                if (this.fileDataCache.has(cacheKey)) {
+                    const cached = this.fileDataCache.get(cacheKey);
+                    this.applyFileData(cached);
+                    this.loading = false;
+                    this.showStatus(`✅ 加载完成`, 'success');
+                    this.clearStatus();
+                    return;
+                }
+                
+                try {
+                    const data = await MOCK_API.getFileData(file.fileKey, file.type);
+                    this.fileDataCache.set(cacheKey, data);
+                    this.applyFileData(data);
+                    this.showStatus(`✅ 加载完成`, 'success');
+                    this.clearStatus();
+                } catch (err) {
+                    console.error('文件加载失败:', err);
+                    this.showStatus(`❌ 加载失败: ${err.message}`, 'error');
+                } finally {
+                    this.loading = false;
+                }
+            },
+            applyFileData(data) {
+                const file = this.currentFile;
+                if (file.type === 'pdf') {
+                    this.loadPdf(data);
+                } else if (file.type === 'image') {
+                    this.imageSrc = data;
+                    this.zoomLevel = 1.0;
+                } else if (file.type === 'text') {
+                    this.textContent = data;
+                }
+            },
+            resetViewState() {
+                if (this.pdfDoc) {
+                    try { this.pdfDoc.destroy(); } catch(e) {}
+                    this.pdfDoc = null;
+                }
+                this.totalPages = 0;
+                this.currentPage = 1;
+                this.imageSrc = null;
+                this.textContent = '';
+                this.zoomLevel = 1.0;
+                this.pdfErrorCount = 0;
+                
+                // 清空 canvas
+                const canvas = document.getElementById('pdf-canvas');
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            },
+            async loadPdf(data) {
+                try {
+                    // 智能转换 PDF 数据
+                    let pdfData;
+                    try {
+                        pdfData = normalizePdfData(data);
+                    } catch (normError) {
+                        console.error('数据转换失败:', normError);
+                        this.showStatus('❌ PDF 数据格式转换失败', 'error');
+                        return;
+                    }
+                    
+                    // 验证 PDF 数据有效性
+                    if (!isValidPdfData(pdfData)) {
+                        this.showStatus('❌ 无效的 PDF 数据', 'error');
+                        return;
+                    }
+                    
+                    this.showStatus('正在解析 PDF...', 'info');
+                    
+                    // PDF.js 配置 - 提高容错性
+                    const loadingTask = pdfjsLib.getDocument({
+                        data: pdfData,
+                        useSystemFonts: true,
+                        disableFontFace: false,
+                        disableRange: true,      // 禁用范围请求，避免分块问题
+                        disableStream: true,     // 禁用流式加载
+                        disableAutoFetch: true,  // 禁用自动获取
+                        cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/cmaps/',
+                        cMapPacked: true,
+                        // 忽略一些错误
+                        ignoreErrors: true,
+                        stopAtErrors: false
+                    });
+                    
+                    const pdf = await loadingTask.promise;
+                    this.pdfDoc = pdf;
+                    this.totalPages = pdf.numPages;
+                    this.currentPage = 1;
+                    this.zoomLevel = 1.0;
+                    
+                    this.showStatus(`📄 PDF加载成功，共 ${this.totalPages} 页`, 'success');
+                    
+                    await this.$nextTick();
+                    await this.renderPage(1);
+                    
+                } catch (err) {
+                    console.error('PDF加载错误详情:', err);
+                    this.pdfErrorCount++;
+                    
+                    // 提供更友好的错误信息
+                    let errorMsg = err.message || '未知错误';
+                    if (errorMsg.includes('flate')) {
+                        errorMsg = 'PDF 压缩流错误，文件可能已损坏';
+                    } else if (errorMsg.includes('format')) {
+                        errorMsg = 'PDF 格式错误';
+                    }
+                    
+                    this.showStatus(`❌ PDF加载失败: ${errorMsg}`, 'error');
+                    
+                    // 在 canvas 上显示错误信息
+                    this.showPdfError(errorMsg);
+                }
+            },
+            async renderPage(pageNumber) {
+                if (!this.pdfDoc) return;
+                
+                try {
+                    this.showStatus(`正在渲染第 ${pageNumber} 页...`, 'info');
+                    const page = await this.pdfDoc.getPage(pageNumber);
+                    
+                    // 获取容器宽度
+                    const container = this.$refs.contentWrapper;
+                    const containerWidth = container ? container.clientWidth - 40 : 700;
+                    const originalViewport = page.getViewport({ scale: 1.0 });
+                    
+                    // 计算缩放，使页面适应容器宽度
+                    let scale = containerWidth / originalViewport.width;
+                    scale = Math.min(Math.max(scale, 0.5), 1.8);
+                    scale = scale * this.zoomLevel;
+                    
+                    const viewport = page.getViewport({ scale: scale });
+                    
+                    await this.$nextTick();
+                    const canvas = document.getElementById('pdf-canvas');
+                    if (!canvas) return;
+                    
+                    const context = canvas.getContext('2d', { alpha: false });
+                    
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    canvas.style.width = viewport.width + 'px';
+                    canvas.style.height = viewport.height + 'px';
+                    
+                    // 填充白色背景
+                    context.fillStyle = 'white';
+                    context.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: viewport,
+                        background: 'white',
+                        intent: 'display'
+                    };
+                    
+                    await page.render(renderContext).promise;
+                    this.showStatus(`✅ 第 ${pageNumber} 页渲染完成`, 'success');
+                    this.clearStatus();
+                    
+                } catch (error) {
+                    console.error('渲染页面失败:', error);
+                    this.showStatus(`❌ 渲染失败: ${error.message}`, 'error');
+                    this.showPdfError(error.message);
+                }
+            },
+            showPdfError(message) {
+                const canvas = document.getElementById('pdf-canvas');
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#fff5f5';
+                    ctx.fillRect(0, 0, canvas.width || 600, canvas.height || 400);
+                    ctx.fillStyle = '#d63031';
+                    ctx.font = '14px monospace';
+                    ctx.fillText('PDF 渲染错误: ' + message, 20, 50);
+                    ctx.fillText('请尝试刷新或选择其他文件', 20, 80);
+                }
+            },
+            async nextPage() {
+                if (this.pdfDoc && this.currentPage < this.totalPages) {
+                    this.currentPage++;
+                    await this.renderPage(this.currentPage);
+                }
+            },
+            async prevPage() {
+                if (this.pdfDoc && this.currentPage > 1) {
+                    this.currentPage--;
+                    await this.renderPage(this.currentPage);
+                }
+            },
+            prevFile() {
+                if (this.fileIndex > 0) {
+                    this.switchFile(this.fileList[this.fileIndex - 1]);
+                }
+            },
+            nextFile() {
+                if (this.fileIndex < this.fileList.length - 1) {
+                    this.switchFile(this.fileList[this.fileIndex + 1]);
+                }
+            },
+            zoomIn() {
+                if (this.currentFile) {
+                    this.zoomLevel = Math.min(this.zoomLevel + 0.2, 3.0);
+                    if (this.currentFile.type === 'pdf' && this.pdfDoc) {
+                        this.renderPage(this.currentPage);
+                    } else if (this.currentFile.type === 'image') {
+                        this.$nextTick(() => this.adjustContentWrapperForImage());
+                    }
+                }
+            },
+            zoomOut() {
+                if (this.currentFile) {
+                    this.zoomLevel = Math.max(this.zoomLevel - 0.2, 0.4);
+                    if (this.currentFile.type === 'pdf' && this.pdfDoc) {
+                        this.renderPage(this.currentPage);
+                    } else if (this.currentFile.type === 'image') {
+                        this.$nextTick(() => this.adjustContentWrapperForImage());
+                    }
+                }
+            },
+            resetZoom() {
+                this.zoomLevel = 1.0;
+                if (this.currentFile && this.currentFile.type === 'pdf' && this.pdfDoc) {
+                    this.renderPage(this.currentPage);
+                } else if (this.currentFile && this.currentFile.type === 'image') {
+                    this.$nextTick(() => this.adjustContentWrapperForImage());
+                }
+            },
+            toggleImageZoom() {
+                if (this.zoomLevel === 1.0) {
+                    this.zoomLevel = 1.8;
+                } else {
+                    this.zoomLevel = 1.0;
+                }
+                this.$nextTick(() => this.adjustContentWrapperForImage());
+            },
+            onImageLoad(event) {
+                const img = event.target;
+                this.imageNaturalWidth = img.naturalWidth;
+                this.imageNaturalHeight = img.naturalHeight;
+                this.adjustContentWrapperForImage();
+            },
+            adjustContentWrapperForImage() {
+                const imgElement = this.$refs.previewImage;
+                const wrapper = this.$refs.contentWrapper;
+                if (!imgElement || !wrapper) return;
+                
+                const naturalWidth = this.imageNaturalWidth || imgElement.naturalWidth || 400;
+                const naturalHeight = this.imageNaturalHeight || imgElement.naturalHeight || 300;
+                const scaledWidth = naturalWidth * this.zoomLevel;
+                const scaledHeight = naturalHeight * this.zoomLevel;
+                
+                wrapper.style.width = scaledWidth + 'px';
+                wrapper.style.minWidth = scaledWidth + 'px';
+                
+                const imageViewDiv = imgElement.parentElement;
+                if (imageViewDiv) {
+                    imageViewDiv
