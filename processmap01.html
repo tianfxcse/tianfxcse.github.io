@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>跨职能流程图 - 精准锚点连线 | 圆角正交 | Action垂直布局</title>
+    <!-- 引入 Vue.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.js"></script>
+    <!-- 引入 Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f0f2f5;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            overflow-x: auto;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            margin: 0 0 0.5rem 0;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sub {
+            color: #475569;
+            border-left: 3px solid #3b82f6;
+            padding-left: 12px;
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+        }
+
+        .diagram-wrapper {
+            overflow-x: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            background: #ffffff;
+        }
+
+        .relative-wrapper {
+            position: relative;
+            min-width: 700px;
+        }
+
+        .matrix {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .matrix-row {
+            display: table-row;
+        }
+
+        .role-header-cell {
+            display: table-cell;
+            background: #f8fafc;
+            font-weight: 600;
+            border: 1px solid #e2e8f0;
+            padding: 14px 12px;
+            vertical-align: middle;
+            text-align: center;
+            min-width: 130px;
+            background-color: #f1f5f9;
+            color: #0f172a;
+            font-size: 0.95rem;
+        }
+
+        .state-header-cell {
+            display: table-cell;
+            background: #eef2ff;
+            font-weight: 700;
+            border: 1px solid #e2e8f0;
+            padding: 14px 8px;
+            text-align: center;
+            vertical-align: middle;
+            min-width: 220px;
+            transition: background 0.2s;
+        }
+
+        .cell-content {
+            display: table-cell;
+            border: 1px solid #e2e8f0;
+            padding: 12px 10px;
+            vertical-align: top;
+            background-color: #ffffff;
+            min-width: 220px;
+        }
+
+        .process-card {
+            background: #ffffff;
+            border-radius: 14px;
+            border-left: 5px solid #3b82f6;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            margin-bottom: 8px;
+            padding: 10px 10px;
+            transition: all 0.2s;
+        }
+
+        .process-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .card-title {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: #0c4a6e;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 10px;
+            border-bottom: 1px dashed #cbd5e1;
+            padding-bottom: 5px;
+        }
+
+        .action-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .action-badge {
+            background: #f1f5f9;
+            border-radius: 40px;
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #0f172a;
+            cursor: pointer;
+            transition: 0.1s;
+            border: 1px solid #cbd5e1;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+        }
+
+        .action-badge:hover {
+            background: #e0e7ff;
+            border-color: #3b82f6;
+            transform: translateX(2px);
+        }
+
+        svg.connection-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        svg.connection-svg path {
+            pointer-events: stroke;
+            cursor: pointer;
+        }
+
+        .line-label {
+            font-size: 10px;
+            fill: #1e293b;
+            font-weight: 600;
+            dominant-baseline: middle;
+            text-anchor: middle;
+            pointer-events: none;
+        }
+
+        .custom-tooltip {
+            position: fixed;
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 8px 14px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            max-width: 280px;
+            z-index: 2000;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            pointer-events: none;
+            border-left: 4px solid #facc15;
+            backdrop-filter: blur(4px);
+        }
+
+        .start-end-badge {
+            border-left-color: #10b981;
+        }
+
+        .start-icon, .end-icon {
+            font-size: 0.7rem;
+            background: #d1fae5;
+            border-radius: 20px;
+            padding: 2px 8px;
+            display: inline-block;
+            margin-left: 8px;
+        }
+
+        .info-placeholder {
+            color: #94a3b8;
+            font-size: 0.75rem;
+            text-align: center;
+            padding: 12px 4px;
+            font-style: italic;
+        }
+
+        .color-preview {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        @media (max-width: 768px) {
+            .role-header-cell, .state-header-cell, .cell-content {
+                min-width: 160px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="app-container">
+        <h1><i class="fas fa-project-diagram"></i> 跨职能流程图 · 精准锚点连线</h1>
+        <div class="sub">
+            <i class="fas fa-arrow-right"></i> 线起点：Action右侧中部 &nbsp;|&nbsp;
+            <i class="fas fa-arrow-down"></i> 线终点：目标状态框顶部/左侧中部 &nbsp;|&nbsp;
+            <i class="fas fa-draw-polygon"></i> 圆角正交连线 (R20) &nbsp;|&nbsp;
+            <i class="fas fa-code-branch"></i> 智能偏移避免重叠
+        </div>
+        <div class="diagram-wrapper">
+            <div class="relative-wrapper" ref="relativeWrapper">
+                <div class="matrix" ref="matrixTable">
+                    <!-- 表头 -->
+                    <div class="matrix-row">
+                        <div class="role-header-cell">角色组 / 状态</div>
+                        <div v-for="state in states" :key="state.name" class="state-header-cell" :style="{ backgroundColor: getStateHeaderColor(state) }">
+                            <div><strong>{{ state.name }}</strong></div>
+                            <div v-if="state.isStart" class="start-icon"><i class="fas fa-play"></i> 开始</div>
+                            <div v-else-if="state.isEnd" class="start-icon end-icon"><i class="fas fa-flag-checkered"></i> 结束</div>
+                        </div>
+                    </div>
+                    <!-- 每一行角色 -->
+                    <div v-for="role in roles" :key="role.id" class="matrix-row">
+                        <div class="role-header-cell">
+                            <i class="fas fa-user-tag"></i> {{ role.name }}
+                        </div>
+                        <div v-for="state in states" :key="state.name" class="cell-content" :data-role="role.name" :data-state="state.name">
+                            <template v-for="card in getCardsForCell(role.name, state.name)">
+                                <div class="process-card" :class="{'start-end-badge': state.isStart || state.isEnd}" :data-cardid="card.id">
+                                    <div class="card-title">
+                                        <i class="fas fa-cube"></i> {{ card.name || '流程节点' }}
+                                    </div>
+                                    <div class="action-list">
+                                        <span v-for="(action, idx) in card.actions" :key="action.actionId" class="action-badge"
+                                              :data-action-idx="idx"
+                                              @mouseenter="showActionTooltip($event, action)"
+                                              @mouseleave="hideTooltip"
+                                              @click="highlightTransitionsFrom(action, card, state, role)">
+                                            <i class="fas fa-bolt"></i> {{ action.name }}
+                                        </span>
+                                        <span v-if="!card.actions.length" class="info-placeholder">无操作</span>
+                                    </div>
+                                </div>
+                            </template>
+                            <div v-if="getCardsForCell(role.name, state.name).length === 0" class="info-placeholder">—</div>
+                        </div>
+                    </div>
+                </div>
+                <svg class="connection-svg" ref="svgCanvas"></svg>
+            </div>
+        </div>
+        <div style="margin-top: 16px; font-size: 12px; color: #475569; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+            <i class="fas fa-info-circle"></i> 连线起点为Action框右侧中间，终点智能选择目标框顶部或左侧中间（取最短路径方向），圆角半径20px，多线自动偏移防重叠。
+        </div>
+    </div>
+</div>
+
+<script>
+// 示例数据
+const DEFAULT_JSON = {
+    "states": [
+        { "name": "草稿", "isStart": true, "isEnd": false, "color": "#fef3c7" },
+        { "name": "评审中", "isStart": false, "isEnd": false, "color": "#dbeafe" },
+        { "name": "已批准", "isStart": false, "isEnd": false, "color": "#dcfce7" },
+        { "name": "已驳回", "isStart": false, "isEnd": false, "color": "#ffe4e6" },
+        { "name": "归档结束", "isStart": false, "isEnd": true, "color": "#e9d5ff" }
+    ],
+    "roles": [
+        { "id": "role_editor", "name": "编辑人员" },
+        { "id": "role_reviewer", "name": "审核组" },
+        { "id": "role_manager", "name": "管理员" }
+    ],
+    "cards": [
+        { "id": "card_draft_editor", "role": "编辑人员", "state": "草稿", "name": "待编辑稿件", "actions": [
+            { "actionId": "act_submit", "name": "提交评审", "description": "提交给审核组进行内容评审" }
+        ] },
+        { "id": "card_review_reviewer", "role": "审核组", "state": "评审中", "name": "内容审查", "actions": [
+            { "actionId": "act_approve", "name": "批准", "description": "内容合格批准发布" },
+            { "actionId": "act_reject", "name": "驳回", "description": "内容不合规退回修改" }
+        ] },
+        { "id": "card_approved_manager", "role": "管理员", "state": "已批准", "name": "发布确认", "actions": [
+            { "actionId": "act_publish", "name": "归档发布", "description": "正式归档并结束流程" }
+        ] },
+        { "id": "card_rejected_editor", "role": "编辑人员", "state": "已驳回", "name": "修改稿", "actions": [
+            { "actionId": "act_resubmit", "name": "重新提交", "description": "修改后再次进入评审" }
+        ] }
+    ],
+    "transitions": [
+        { "id": "t1", "sourceState": "草稿", "sourceRole": "编辑人员", "actionId": "act_submit", "targetState": "评审中", "targetRole": "审核组", "conditionName": "内容完整", "conditionDetail": "稿件必须包含标题、正文和摘要，且字数不少于300字。", "lineColor": "#8b5cf6" },
+        { "id": "t2", "sourceState": "评审中", "sourceRole": "审核组", "actionId": "act_approve", "targetState": "已批准", "targetRole": "管理员", "conditionName": "质量达标", "conditionDetail": "内容无错误，符合发布标准。", "lineColor": "#10b981" },
+        { "id": "t3", "sourceState": "评审中", "sourceRole": "审核组", "actionId": "act_reject", "targetState": "已驳回", "targetRole": "编辑人员", "conditionName": "严重问题", "conditionDetail": "包含事实错误或敏感词，需重新编辑。", "lineColor": "#ef4444" },
+        { "id": "t4", "sourceState": "已批准", "sourceRole": "管理员", "actionId": "act_publish", "targetState": "归档结束", "targetRole": "管理员", "conditionName": "归档确认", "conditionDetail": "最终发布至归档库并通知相关人员。", "lineColor": "#f59e0b" },
+        { "id": "t5", "sourceState": "已驳回", "sourceRole": "编辑人员", "actionId": "act_resubmit", "targetState": "评审中", "targetRole": "审核组", "conditionName": "修改后复审", "conditionDetail": "根据驳回意见修改，重新进入评审环节。", "lineColor": "#3b82f6" },
+        { "id": "t6", "sourceState": "评审中", "sourceRole": "审核组", "actionId": "act_approve", "targetState": "归档结束", "targetRole": "管理员", "conditionName": "快速归档", "conditionDetail": "特殊场景跳过管理员发布", "lineColor": "#ec489a" }
+    ]
+};
+
+new Vue({
+    el: '#app',
+    data() {
+        return {
+            states: [],
+            roles: [],
+            cards: [],
+            transitions: [],
+            highlightTransitionIds: new Set(),
+            activeTooltipDiv: null,
+            tooltipMoveHandler: null,
+            drawTimer: null,
+            highlightTimer: null
+        };
+    },
+    mounted() {
+        this.loadData(DEFAULT_JSON);
+        window.addEventListener('resize', this.debouncedDrawLines);
+        this.$nextTick(() => {
+            this.drawLines();
+        });
+    },
+    beforeDestroy() {
+        window.removeEventListener('resize', this.debouncedDrawLines);
+        if (this.drawTimer) clearTimeout(this.drawTimer);
+        if (this.highlightTimer) clearTimeout(this.highlightTimer);
+        this.hideTooltip();
+    },
+    methods: {
+        loadData(jsonData) {
+            this.states = jsonData.states || [];
+            this.roles = jsonData.roles || [];
+            this.cards = jsonData.cards || [];
+            this.transitions = jsonData.transitions || [];
+            if (!this.states.some(s => s.isStart)) {
+                this.states.unshift({ name: "开始", isStart: true, isEnd: false });
+            }
+            if (!this.states.some(s => s.isEnd)) {
+                this.states.push({ name: "结束", isStart: false, isEnd: true });
+            }
+            this.$nextTick(() => this.drawLines());
+        },
+
+        getStateHeaderColor(state) {
+            if (state.color) return state.color;
+            if (state.isStart) return "#e0f2fe";
+            if (state.isEnd) return "#fce7f3";
+            return "#f1f5f9";
+        },
+
+        getCardsForCell(roleName, stateName) {
+            return this.cards.filter(card => card.role === roleName && card.state === stateName);
+        },
+
+        getTransitionsFromAction(sourceRole, sourceState, actionId) {
+            return this.transitions.filter(t => 
+                t.sourceRole === sourceRole && t.sourceState === sourceState && t.actionId === actionId
+            );
+        },
+
+        highlightTransitionsFrom(action, card, sourceStateObj, sourceRoleObj) {
+            const actionId = action.actionId;
+            const sourceRole = sourceRoleObj.name;
+            const sourceState = sourceStateObj.name;
+            const transitionsList = this.getTransitionsFromAction(sourceRole, sourceState, actionId);
+            if (transitionsList.length) {
+                this.highlightTransitionIds.clear();
+                transitionsList.forEach(t => this.highlightTransitionIds.add(t.id));
+                this.drawLines();
+                if (this.highlightTimer) clearTimeout(this.highlightTimer);
+                this.highlightTimer = setTimeout(() => {
+                    this.highlightTransitionIds.clear();
+                    this.drawLines();
+                }, 2500);
+            } else {
+                this.showTempMessage(`"${action.name}" 未定义任何流向`, 1500);
+            }
+        },
+
+        showTempMessage(msg, duration) {
+            const tipDiv = document.createElement('div');
+            tipDiv.innerText = msg;
+            tipDiv.style.position = 'fixed';
+            tipDiv.style.bottom = '20px';
+            tipDiv.style.left = '50%';
+            tipDiv.style.transform = 'translateX(-50%)';
+            tipDiv.style.backgroundColor = '#334155';
+            tipDiv.style.color = '#fff';
+            tipDiv.style.padding = '6px 14px';
+            tipDiv.style.borderRadius = '30px';
+            tipDiv.style.fontSize = '12px';
+            tipDiv.style.zIndex = 3000;
+            document.body.appendChild(tipDiv);
+            setTimeout(() => tipDiv.remove(), duration);
+        },
+
+        showActionTooltip(event, action) {
+            const detail = action.description || '无详细说明';
+            this.hideTooltip();
+            const tooltipDiv = document.createElement('div');
+            tooltipDiv.className = 'custom-tooltip';
+            tooltipDiv.innerHTML = `<strong>${action.name}</strong><br>${detail}`;
+            document.body.appendChild(tooltipDiv);
+            const updatePos = (e) => {
+                tooltipDiv.style.left = (e.clientX + 15) + 'px';
+                tooltipDiv.style.top = (e.clientY - 30) + 'px';
+            };
+            updatePos(event);
+            this.activeTooltipDiv = tooltipDiv;
+            const moveHandler = (e) => updatePos(e);
+            document.addEventListener('mousemove', moveHandler);
+            this.tooltipMoveHandler = moveHandler;
+        },
+
+        hideTooltip() {
+            if (this.activeTooltipDiv) {
+                this.activeTooltipDiv.remove();
+                this.activeTooltipDiv = null;
+            }
+            if (this.tooltipMoveHandler) {
+                document.removeEventListener('mousemove', this.tooltipMoveHandler);
+                this.tooltipMoveHandler = null;
+            }
+        },
+
+        // 获取action右侧中部坐标
+        getActionRightMidpoint(actionElement) {
+            const rect = actionElement.getBoundingClientRect();
+            return { x: rect.right, y: (rect.top + rect.bottom) / 2 };
+        },
+
+        // 获取目标框的最佳锚点 (顶部中间 或 左侧中间，选择使得连线更短的方向)
+        getTargetBestAnchor(targetElement, startX, startY, wrapperRect) {
+            const rect = targetElement.getBoundingClientRect();
+            const localRect = {
+                left: rect.left - wrapperRect.left,
+                right: rect.right - wrapperRect.left,
+                top: rect.top - wrapperRect.top,
+                bottom: rect.bottom - wrapperRect.top,
+                centerX: (rect.left + rect.right) / 2 - wrapperRect.left,
+                centerY: (rect.top + rect.bottom) / 2 - wrapperRect.top
+            };
+            // 候选点: 顶部中间、左侧中间
+            const topMid = { x: localRect.centerX, y: rect.top - wrapperRect.top };
+            const leftMid = { x: rect.left - wrapperRect.left, y: localRect.centerY };
+            // 计算欧氏距离起点到候选点
+            const distToTop = Math.hypot(startX - topMid.x, startY - topMid.y);
+            const distToLeft = Math.hypot(startX - leftMid.x, startY - leftMid.y);
+            return distToTop <= distToLeft ? topMid : leftMid;
+        },
+
+        // 生成带圆角的正交路径 (半径20px)，支持偏移量
+        generateRoundedOrthogonalPath(start, end, verticalOffset = 0) {
+            let sx = start.x, sy = start.y + verticalOffset;
+            let ex = end.x, ey = end.y + verticalOffset;
+            
+            const deltaX = ex - sx;
+            const deltaY = ey - sy;
+            const radius = 20;
+            
+            // 策略：先水平再垂直，构造带圆角的SVG path
+            // 计算中间拐点X坐标
+            const midX = sx + deltaX * 0.5;
+            const r = Math.min(radius, Math.abs(deltaX)/2, Math.abs(deltaY)/2);
+            
+            // 构建圆角正交路径
+            if (Math.abs(deltaX) > Math.abs(deltaY) || Math.abs(deltaX) > 30) {
+                // 水平主导路径: 右 -> 下/上 -> 右
+                const cornerX = midX;
+                // 确保圆角半径不超过线段长度
+                const usableR = Math.min(r, Math.abs(cornerX - sx) - 2, Math.abs(ey - sy) / 2);
+                if (usableR > 4 && Math.abs(cornerX - sx) > usableR && Math.abs(ey - sy) > usableR * 2) {
+                    const signY = ey > sy ? 1 : -1;
+                    const d = `M ${sx} ${sy} 
+                               L ${cornerX - usableR} ${sy} 
+                               Q ${cornerX} ${sy} ${cornerX} ${sy + signY * usableR} 
+                               L ${cornerX} ${ey - signY * usableR} 
+                               Q ${cornerX} ${ey} ${cornerX + usableR} ${ey} 
+                               L ${ex} ${ey}`;
+                    return d;
+                }
+                // 回退简单折线
+                return `M ${sx} ${sy} L ${midX} ${sy} L ${midX} ${ey} L ${ex} ${ey}`;
+            } else {
+                // 垂直主导路径: 先垂直后水平
+                const cornerY = sy + deltaY * 0.5;
+                const usableR = Math.min(r, Math.abs(cornerY - sy) - 2, Math.abs(ex - sx) / 2);
+                if (usableR > 4 && Math.abs(cornerY - sy) > usableR && Math.abs(ex - sx) > usableR * 2) {
+                    const signX = ex > sx ? 1 : -1;
+                    const d = `M ${sx} ${sy} 
+                               L ${sx} ${cornerY - usableR} 
+                               Q ${sx} ${cornerY} ${sx + signX * usableR} ${cornerY} 
+                               L ${ex - signX * usableR} ${cornerY} 
+                               Q ${ex} ${cornerY} ${ex} ${cornerY + (ey > cornerY ? usableR : -usableR)} 
+                               L ${ex} ${ey}`;
+                    return d;
+                }
+                return `M ${sx} ${sy} L ${sx} ${cornerY} L ${ex} ${cornerY} L ${ex} ${ey}`;
+            }
+        },
+        
+        getLineColor(transition, isHighlight) {
+            if (isHighlight) return "#f97316";
+            if (transition.lineColor) return transition.lineColor;
+            return "#64748b";
+        },
+        
+        findActionElement(role, state, actionId) {
+            const cell = document.querySelector(`.cell-content[data-role="${role}"][data-state="${state}"]`);
+            if (!cell) return null;
+            const actionSpans = cell.querySelectorAll('.action-badge');
+            const card = this.cards.find(c => c.role === role && c.state === state);
+            if (card && card.actions) {
+                const matchedAction = card.actions.find(a => a.actionId === actionId);
+                if (matchedAction) {
+                    for (let span of actionSpans) {
+                        if (span.innerText.includes(matchedAction.name)) return span;
+                    }
+                }
+            }
+            for (let span of actionSpans) {
+                if (span.innerText.toLowerCase().includes(actionId.toLowerCase())) return span;
+            }
+            return actionSpans.length ? actionSpans[0] : null;
+        },
+        
+        findTargetElement(targetRole, targetState) {
+            const targetCell = document.querySelector(`.cell-content[data-role="${targetRole}"][data-state="${targetState}"]`);
+            if (!targetCell) return null;
+            const card = targetCell.querySelector('.process-card');
+            return card || targetCell;
+        },
+        
+        // 计算防重叠偏移 (相同源action到相同目标框的多条连线)
+        computePathOffsets() {
+            const groups = new Map();
+            for (let trans of this.transitions) {
+                const key = `${trans.sourceRole}|${trans.sourceState}|${trans.actionId}|${trans.targetRole}|${trans.targetState}`;
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(trans);
+            }
+            const offsetMap = new Map();
+            for (let [key, transList] of groups.entries()) {
+                const count = transList.length;
+                for (let idx = 0; idx < count; idx++) {
+                    const trans = transList[idx];
+                    let offset = 0;
+                    if (count > 1) {
+                        const mid = (count - 1) / 2;
+                        offset = (idx - mid) * 8;
+                    }
+                    offsetMap.set(trans.id, offset);
+                }
+            }
+            return offsetMap;
+        },
+        
+        drawLines() {
+            const svg = this.$refs.svgCanvas;
+            const wrapper = this.$refs.relativeWrapper;
+            if (!svg || !wrapper) return;
+            const wrapperRect = wrapper.getBoundingClientRect();
+            if (wrapperRect.width === 0) return;
+            
+            while (svg.firstChild) svg.removeChild(svg.firstChild);
+            
+            const offsetMap = this.computePathOffsets();
+            
+            for (let trans of this.transitions) {
+                let sourceActionElem = this.findActionElement(trans.sourceRole, trans.sourceState, trans.actionId);
+                if (!sourceActionElem) continue;
+                let targetElem = this.findTargetElement(trans.targetRole, trans.targetState);
+                if (!targetElem) continue;
+                
+                // 起点: action右侧中部
+                const startRaw = this.getActionRightMidpoint(sourceActionElem);
+                const start = { x: startRaw.x - wrapperRect.left, y: startRaw.y - wrapperRect.top };
+                
+                // 终点: 根据起点位置智能选择顶部或左侧中部
+                const endRaw = this.getTargetBestAnchor(targetElem, start.x, start.y, wrapperRect);
+                const end = { x: endRaw.x, y: endRaw.y };
+                
+                const verticalOffset = offsetMap.get(trans.id) || 0;
+                const d = this.generateRoundedOrthogonalPath(start, end, verticalOffset);
+                if (!d) continue;
+                
+                const isHighlight = this.highlightTransitionIds.has(trans.id);
+                const lineColor = this.getLineColor(trans, isHighlight);
+                
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', d);
+                path.setAttribute('stroke', lineColor);
+                path.setAttribute('stroke-width', isHighlight ? '3.5' : '2.2');
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke-linecap', 'round');
+                path.setAttribute('stroke-linejoin', 'round');
+                if (!isHighlight && !trans.lineColor) path.setAttribute('stroke-dasharray', '4 3');
+                path.style.pointerEvents = 'stroke';
+                svg.appendChild(path);
+                
+                // 计算路径中点用于条件文字
+                const midPoint = this.getPathMidpoint(d);
+                let textX = midPoint.x;
+                let textY = midPoint.y - 8;
+                
+                const conditionText = trans.conditionName || '条件';
+                const approxWidth = conditionText.length * 6 + 12;
+                const textBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                textBg.setAttribute('x', textX - approxWidth/2);
+                textBg.setAttribute('y', textY - 8);
+                textBg.setAttribute('width', approxWidth);
+                textBg.setAttribute('height', 16);
+                textBg.setAttribute('fill', '#ffffff');
+                textBg.setAttribute('fill-opacity', '0.9');
+                textBg.setAttribute('rx', '6');
+                svg.appendChild(textBg);
+                
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', textX);
+                text.setAttribute('y', textY);
+                text.setAttribute('font-size', '10');
+                text.setAttribute('fill', '#1e293b');
+                text.setAttribute('font-weight', '600');
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('dominant-baseline', 'middle');
+                text.textContent = conditionText;
+                svg.appendChild(text);
+                
+                // 悬停区域
+                const hoverPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                hoverPath.setAttribute('d', d);
+                hoverPath.setAttribute('stroke', 'transparent');
+                hoverPath.setAttribute('stroke-width', '14');
+                hoverPath.setAttribute('fill', 'none');
+                hoverPath.style.cursor = 'pointer';
+                hoverPath.addEventListener('mouseenter', (e) => {
+                    const detailDiv = document.createElement('div');
+                    detailDiv.className = 'custom-tooltip';
+                    detailDiv.innerHTML = `<strong>条件: ${trans.conditionName}</strong><br>${trans.conditionDetail || '无详细信息'}`;
+                    document.body.appendChild(detailDiv);
+                    detailDiv.style.left = (e.clientX + 15) + 'px';
+                    detailDiv.style.top = (e.clientY - 30) + 'px';
+                    const onLeave = () => detailDiv.remove();
+                    hoverPath.addEventListener('mouseleave', onLeave, { once: true });
+                });
+                svg.appendChild(hoverPath);
+            }
+        },
+        
+        // 从path d字符串中估算中点 (简单取第一个二次贝塞尔或线段的中点)
+        getPathMidpoint(d) {
+            const commands = d.match(/[MLQ][^MLQ]*/g);
+            if (!commands || commands.length === 0) return { x: 0, y: 0 };
+            const midIdx = Math.floor(commands.length / 2);
+            const cmd = commands[midIdx];
+            const coords = cmd.match(/[\d\.\-]+/g);
+            if (coords && coords.length >= 2) {
+                return { x: parseFloat(coords[0]), y: parseFloat(coords[1]) };
+            }
+            return { x: 0, y: 0 };
+        },
+        
+        debouncedDrawLines() {
+            if (this.drawTimer) clearTimeout(this.drawTimer);
+            this.drawTimer = setTimeout(() => {
+                this.drawLines();
+            }, 100);
+        }
+    },
+    watch: {
+        states: { deep: true, handler() { this.$nextTick(() => this.drawLines()); } },
+        cards: { deep: true, handler() { this.$nextTick(() => this.drawLines()); } },
+        transitions: { deep: true, handler() { this.$nextTick(() => this.drawLines()); } }
+    }
+});
+</script>
+</body>
+</html>
