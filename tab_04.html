@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>跨职能流程图 - 垂直节点布局</title>
+    
+    <!-- 引入 Vue 2 -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <!-- 引入 jsPlumb -->
+    <script src="jsplumb.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f5f7fa;
+            padding: 30px;
+        }
+        
+        #app {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 24px;
+        }
+        
+        .header {
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #e4e7ed;
+        }
+        
+        .header h2 {
+            color: #303133;
+            font-size: 22px;
+            font-weight: 600;
+        }
+        
+        .header h2 small {
+            font-size: 14px;
+            color: #909399;
+            font-weight: 400;
+            margin-left: 12px;
+        }
+        
+        .header .info {
+            margin-top: 8px;
+            font-size: 13px;
+            color: #909399;
+        }
+        
+        .header .info .highlight {
+            color: #409EFF;
+            font-weight: 600;
+        }
+        
+        /* 表格样式 */
+        .table-wrapper {
+            position: relative;
+            overflow-x: auto;
+            border: 1px solid #dcdfe6;
+            border-radius: 8px;
+        }
+        
+        .swimlane-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            min-width: 800px;
+        }
+        
+        .swimlane-table th,
+        .swimlane-table td {
+            border: 1px solid #dcdfe6;
+            padding: 0;
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        .corner-header {
+            background: #f0f2f5;
+            padding: 12px !important;
+            font-weight: 600;
+            color: #303133;
+            width: 120px;
+            min-width: 120px;
+        }
+        
+        .status-header {
+            background: #ecf5ff;
+            padding: 12px !important;
+            font-weight: 600;
+            color: #409EFF;
+            font-size: 14px;
+            min-width: 140px;
+        }
+        
+        .role-header {
+            background: #f5f7fa;
+            padding: 12px !important;
+            font-weight: 600;
+            color: #606266;
+            font-size: 14px;
+            width: 120px;
+            min-width: 120px;
+            text-align: center;
+        }
+        
+        .cell {
+            height: auto;
+            min-height: 80px;
+            padding: 8px;
+            position: relative;
+            background: #fafbfc;
+        }
+        
+        /* ===== 关键修改：单元格内容垂直布局 ===== */
+        .cell-content {
+            display: flex;
+            flex-direction: column;  /* 垂直排列 */
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 100%;
+            gap: 8px;  /* 节点之间的垂直间距 */
+            padding: 6px 4px;
+        }
+        
+        /* 流程节点样式 - 调整宽度适应垂直布局 */
+        .flow-node {
+            position: relative;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 2px solid;
+            cursor: default;
+            min-width: 70px;
+            max-width: 90%;
+            min-height: 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            user-select: none;
+            flex-shrink: 0;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        
+        .flow-node:hover {
+            transform: translateX(2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10;
+        }
+        
+        .flow-node .node-content {
+            display: flex;
+            flex-direction: row;  /* 图标和标签水平排列，节省垂直空间 */
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+        }
+        
+        .flow-node .node-icon {
+            font-size: 16px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        
+        .flow-node .node-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #303133;
+            text-align: center;
+            word-break: break-all;
+            line-height: 1.3;
+        }
+        
+        .flow-node .node-desc {
+            font-size: 10px;
+            color: #909399;
+            text-align: center;
+            white-space: nowrap;
+            margin-left: 4px;
+        }
+        
+        /* 节点上的小标签 - 显示连线数量 */
+        .flow-node .node-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #409EFF;
+            color: white;
+            border-radius: 10px;
+            padding: 0 6px;
+            font-size: 10px;
+            line-height: 16px;
+            min-width: 16px;
+            text-align: center;
+        }
+        
+        /* 节点类型颜色 */
+        .node-start {
+            background: #f0f9ff !important;
+            border-color: #67C23A !important;
+        }
+        .node-start .node-label { color: #67C23A; }
+        
+        .node-process {
+            background: #ecf5ff !important;
+            border-color: #409EFF !important;
+        }
+        .node-process .node-label { color: #409EFF; }
+        
+        .node-decision {
+            background: #fdf6ec !important;
+            border-color: #E6A23C !important;
+        }
+        .node-decision .node-label { color: #E6A23C; }
+        
+        .node-end {
+            background: #fef0f0 !important;
+            border-color: #F56C6C !important;
+        }
+        .node-end .node-label { color: #F56C6C; }
+        
+        /* jsPlumb 连线样式 */
+        .jtk-connector {
+            z-index: 5;
+        }
+        
+        .jtk-endpoint {
+            z-index: 6;
+        }
+        
+        /* 统计信息 */
+        .stats {
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: #f5f7fa;
+            border-radius: 8px;
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: #606266;
+        }
+        
+        .stats .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .stats .stat-item .label {
+            color: #909399;
+        }
+        
+        .stats .stat-item .value {
+            font-weight: 600;
+            color: #303133;
+        }
+        
+        .stats .stat-item .value.highlight {
+            color: #409EFF;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-left: auto;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #606266;
+        }
+        
+        .legend-item .dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            border: 2px solid;
+        }
+        
+        .legend-item .dot.start { border-color: #67C23A; background: #f0f9ff; }
+        .legend-item .dot.process { border-color: #409EFF; background: #ecf5ff; }
+        .legend-item .dot.decision { border-color: #E6A23C; background: #fdf6ec; }
+        .legend-item .dot.end { border-color: #F56C6C; background: #fef0f0; }
+        
+        /* 连线颜色图例 */
+        .connection-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #dcdfe6;
+        }
+        
+        .connection-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+        }
+        
+        .connection-legend-item .line {
+            width: 30px;
+            height: 2px;
+            border-radius: 2px;
+        }
+        
+        .debug-info {
+            margin-top: 12px;
+            padding: 12px;
+            background: #f0f2f5;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #606266;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .debug-info .success { color: #67C23A; }
+        .debug-info .error { color: #F56C6C; }
+        .debug-info .warn { color: #E6A23C; }
+        .debug-info .info { color: #409EFF; }
+        
+        @media (max-width: 768px) {
+            #app { padding: 12px; }
+            .stats { flex-direction: column; gap: 8px; }
+            .legend { margin-left: 0; }
+            .flow-node { min-width: 50px; }
+            .flow-node .node-label { font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 头部 -->
+        <div class="header">
+            <h2>
+                📊 跨职能流程图
+                <small>垂直节点布局 · 多节点任意连线</small>
+            </h2>
+            <div class="info">
+                共 <span class="highlight">{{ statuses.length }}</span> 个状态 · 
+                <span class="highlight">{{ roles.length }}</span> 个角色 · 
+                <span class="highlight">{{ nodeCount }}</span> 个节点 · 
+                <span class="highlight">{{ connectionCount }}</span> 条连线
+                <span style="margin-left: 16px;">💡 鼠标悬停节点查看详情</span>
+                <span style="margin-left: 16px; color: #67C23A;">✅ 节点垂直分布</span>
+            </div>
+        </div>
+        
+        <!-- 表格 -->
+        <div class="table-wrapper" ref="tableWrapper">
+            <table class="swimlane-table" id="swimlaneTable">
+                <thead>
+                    <tr>
+                        <th class="corner-header">角色 \ 状态</th>
+                        <th 
+                            v-for="status in statuses" 
+                            :key="status.id" 
+                            class="status-header"
+                        >
+                            {{ status.name }}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="role in roles" :key="role.id">
+                        <td class="role-header">{{ role.name }}</td>
+                        <td 
+                            v-for="status in statuses" 
+                            :key="role.id + '-' + status.id"
+                            class="cell"
+                            :data-role="role.id"
+                            :data-status="status.id"
+                        >
+                            <div class="cell-content">
+                                <!-- 遍历该单元格的所有节点 - 垂直排列 -->
+                                <div 
+                                    v-for="(node, index) in getNodesInCell(role.id, status.id)"
+                                    :key="index"
+                                    :id="node.id"
+                                    class="flow-node"
+                                    :class="'node-' + node.type"
+                                    :style="{ borderColor: node.color }"
+                                    :title="node.label + (node.description ? ' - ' + node.description : '') + '\n连线: ' + (node.connectionCount || 0) + ' 条'"
+                                >
+                                    <div class="node-content">
+                                        <span class="node-icon">{{ node.icon }}</span>
+                                        <span class="node-label">{{ node.label }}</span>
+                                        <span v-if="node.description" class="node-desc">{{ node.description }}</span>
+                                    </div>
+                                    <span v-if="node.connectionCount > 0" class="node-badge">
+                                        {{ node.connectionCount }}
+                                    </span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 统计和图例 -->
+        <div class="stats">
+            <div class="stat-item">
+                <span class="label">📌 节点总数：</span>
+                <span class="value highlight">{{ nodeCount }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">🔗 连线总数：</span>
+                <span class="value highlight">{{ connectionCount }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">📊 状态数：</span>
+                <span class="value">{{ statuses.length }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">👥 角色数：</span>
+                <span class="value">{{ roles.length }}</span>
+            </div>
+            
+            <div class="legend">
+                <span class="legend-item">
+                    <span class="dot start"></span> 开始
+                </span>
+                <span class="legend-item">
+                    <span class="dot process"></span> 处理
+                </span>
+                <span class="legend-item">
+                    <span class="dot decision"></span> 决策
+                </span>
+                <span class="legend-item">
+                    <span class="dot end"></span> 结束
+                </span>
+            </div>
+        </div>
+        
+        <!-- 连线颜色图例 -->
+        <div class="stats" style="margin-top: 8px;">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <span style="font-weight: 500; font-size: 13px; color: #303133;">🎨 连线颜色：</span>
+                <div class="connection-legend">
+                    <div 
+                        v-for="(color, index) in uniqueConnectionColors" 
+                        :key="index"
+                        class="connection-legend-item"
+                    >
+                        <span class="line" :style="{ background: color }"></span>
+                        <span style="font-size: 11px; color: #606266;">{{ color }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 调试信息 -->
+        <div class="debug-info" v-if="debugLogs.length > 0">
+            <div v-for="(log, index) in debugLogs" :key="index" :class="log.type">
+                {{ log.message }}
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        new Vue({
+            el: '#app',
+            data: {
+                // ========== 数据配置 ==========
+                statuses: [
+                    { id: 'status1', name: '待处理' },
+                    { id: 'status2', name: '进行中' },
+                    { id: 'status3', name: '审核中' },
+                    { id: 'status4', name: '已完成' }
+                ],
+                
+                roles: [
+                    { id: 'role1', name: '产品经理' },
+                    { id: 'role2', name: '设计师' },
+                    { id: 'role3', name: '开发工程师' },
+                    { id: 'role4', name: '测试工程师' }
+                ],
+                
+                // ===== 节点数据 =====
+                nodeData: [
+                    // 产品经理 - 待处理
+                    { role: 'role1', status: 'status1', label: '需求分析', type: 'start', color: '#67C23A', description: '收集需求' },
+                    
+                    // 产品经理 - 进行中（多个节点垂直排列）
+                    { role: 'role1', status: 'status2', label: '需求评审', type: 'process', color: '#409EFF', description: '评审会议' },
+                    { role: 'role1', status: 'status2', label: '需求细化', type: 'process', color: '#409EFF', description: '需求拆分' },
+                    { role: 'role1', status: 'status2', label: '需求排期', type: 'process', color: '#409EFF', description: '排期计划' },
+                    
+                    // 设计师 - 进行中（多个节点垂直排列）
+                    { role: 'role2', status: 'status2', label: '原型设计', type: 'process', color: '#409EFF', description: 'UI设计' },
+                    { role: 'role2', status: 'status2', label: '交互设计', type: 'process', color: '#409EFF', description: '交互稿' },
+                    
+                    // 开发工程师 - 进行中（多个节点垂直排列）
+                    { role: 'role3', status: 'status2', label: '技术选型', type: 'decision', color: '#E6A23C', description: '方案选择' },
+                    { role: 'role3', status: 'status2', label: '技术预研', type: 'process', color: '#409EFF', description: '技术调研' },
+                    { role: 'role3', status: 'status2', label: '环境搭建', type: 'process', color: '#409EFF', description: '开发环境' },
+                    
+                    // 开发工程师 - 审核中
+                    { role: 'role3', status: 'status3', label: '代码开发', type: 'process', color: '#409EFF', description: '编码实现' },
+                    { role: 'role3', status: 'status3', label: '代码审查', type: 'process', color: '#409EFF', description: 'Code Review' },
+                    
+                    // 测试工程师 - 审核中
+                    { role: 'role4', status: 'status3', label: '测试用例', type: 'process', color: '#409EFF', description: '编写用例' },
+                    { role: 'role4', status: 'status3', label: '功能测试', type: 'process', color: '#409EFF', description: '功能验证' },
+                    
+                    // 测试工程师 - 已完成
+                    { role: 'role4', status: 'status4', label: '验收通过', type: 'end', color: '#F56C6C', description: '验收完成' },
+                    
+                    // 产品经理 - 已完成
+                    { role: 'role1', status: 'status4', label: '产品复盘', type: 'process', color: '#409EFF', description: '总结回顾' }
+                ],
+                
+                // ===== 连线规则 =====
+                connectionRules: [
+                    // === 主流程 ===
+                    { from: 'node-role1-status1-0', to: 'node-role1-status2-0', color: '#409EFF', label: '评审' },
+                    { from: 'node-role1-status2-0', to: 'node-role1-status2-1', color: '#67C23A', label: '细化' },
+                    { from: 'node-role1-status2-1', to: 'node-role1-status2-2', color: '#67C23A', label: '排期' },
+                    { from: 'node-role1-status2-2', to: 'node-role2-status2-0', color: '#409EFF', label: '设计' },
+                    
+                    // === 设计师流程 ===
+                    { from: 'node-role2-status2-0', to: 'node-role2-status2-1', color: '#E6A23C', label: '交互' },
+                    { from: 'node-role2-status2-1', to: 'node-role3-status2-0', color: '#409EFF', label: '技术选型' },
+                    { from: 'node-role2-status2-1', to: 'node-role3-status2-1', color: '#E6A23C', label: '预研' },
+                    
+                    // === 开发流程 ===
+                    { from: 'node-role3-status2-0', to: 'node-role3-status2-1', color: '#409EFF', label: '预研' },
+                    { from: 'node-role3-status2-1', to: 'node-role3-status2-2', color: '#409EFF', label: '环境' },
+                    { from: 'node-role3-status2-2', to: 'node-role3-status3-0', color: '#409EFF', label: '开发' },
+                    { from: 'node-role3-status3-0', to: 'node-role3-status3-1', color: '#E6A23C', label: '审查' },
+                    
+                    // === 测试流程 ===
+                    { from: 'node-role3-status3-1', to: 'node-role4-status3-0', color: '#409EFF', label: '写用例' },
+                    { from: 'node-role4-status3-0', to: 'node-role4-status3-1', color: '#409EFF', label: '测试' },
+                    { from: 'node-role4-status3-1', to: 'node-role4-status4-0', color: '#409EFF', label: '验收' },
+                    
+                    // === 产品经理后续 ===
+                    { from: 'node-role4-status4-0', to: 'node-role1-status4-0', color: '#67C23A', label: '复盘' },
+                    
+                    // === 跨角色横向协作 ===
+                    { from: 'node-role2-status2-1', to: 'node-role3-status2-0', color: '#E6A23C', label: '设计转开发' },
+                    { from: 'node-role3-status2-0', to: 'node-role2-status2-1', color: '#F56C6C', label: '反馈' },
+                    { from: 'node-role3-status3-1', to: 'node-role1-status2-2', color: '#F56C6C', label: '排期调整' }
+                ],
+                
+                // ========== 运行时数据 ==========
+                jsPlumbInstance: null,
+                nodeMap: {},
+                connectionCount: 0,
+                debugLogs: [],
+                nodeConnectionCount: {}
+            },
+            
+            computed: {
+                nodeCount: function() {
+                    return this.nodeData.length;
+                },
+                uniqueConnectionColors: function() {
+                    var colors = {};
+                    this.connectionRules.forEach(function(rule) {
+                        if (rule.color) {
+                            colors[rule.color] = true;
+                        }
+                    });
+                    return Object.keys(colors);
+                }
+            },
+            
+            mounted: function() {
+                var self = this;
+                
+                this.debugLogs = [];
+                this.addDebug('info', '🚀 应用启动 - 垂直节点布局');
+                
+                this.buildNodeMap();
+                this.addDebug('info', '📦 节点映射构建完成，共 ' + Object.keys(this.nodeMap).length + ' 个节点');
+                
+                this.$nextTick(function() {
+                    self.addDebug('info', '🔄 DOM 渲染完成');
+                    self.initJsPlumb();
+                    
+                    setTimeout(function() {
+                        self.drawConnections();
+                    }, 500);
+                });
+                
+                window.addEventListener('resize', this.handleResize);
+            },
+            
+            beforeDestroy: function() {
+                window.removeEventListener('resize', this.handleResize);
+                if (this.jsPlumbInstance) {
+                    this.jsPlumbInstance.reset();
+                }
+            },
+            
+            methods: {
+                addDebug: function(type, message) {
+                    this.debugLogs.push({
+                        type: type,
+                        message: '[' + new Date().toLocaleTimeString() + '] ' + message
+                    });
+                    if (this.debugLogs.length > 50) {
+                        this.debugLogs.shift();
+                    }
+                },
+                
+                buildNodeMap: function() {
+                    var self = this;
+                    var map = {};
+                    
+                    this.nodeData.forEach(function(node, index) {
+                        var nodeId = 'node-' + node.role + '-' + node.status + '-' + index;
+                        map[nodeId] = {
+                            role: node.role,
+                            status: node.status,
+                            label: node.label,
+                            type: node.type,
+                            color: node.color,
+                            description: node.description || '',
+                            icon: self.getNodeIcon(node.type),
+                            index: index,
+                            connectionCount: 0
+                        };
+                    });
+                    
+                    this.nodeMap = map;
+                },
+                
+                getNodesInCell: function(roleId, statusId) {
+                    var result = [];
+                    var self = this;
+                    
+                    Object.keys(this.nodeMap).forEach(function(nodeId) {
+                        var node = self.nodeMap[nodeId];
+                        if (node.role === roleId && node.status === statusId) {
+                            var connCount = self.nodeConnectionCount[nodeId] || 0;
+                            result.push({
+                                id: nodeId,
+                                label: node.label,
+                                type: node.type,
+                                color: node.color,
+                                description: node.description,
+                                icon: node.icon,
+                                connectionCount: connCount
+                            });
+                        }
+                    });
+                    
+                    // 按 index 排序，保持垂直顺序
+                    result.sort(function(a, b) {
+                        var aId = a.id;
+                        var bId = b.id;
+                        var aIndex = parseInt(aId.split('-').pop());
+                        var bIndex = parseInt(bId.split('-').pop());
+                        return aIndex - bIndex;
+                    });
+                    
+                    return result;
+                },
+                
+                getNodeIcon: function(type) {
+                    var icons = {
+                        start: '▶️',
+                        process: '⚙️',
+                        decision: '🔀',
+                        end: '⏹️'
+                    };
+                    return icons[type] || '📌';
+                },
+                
+                initJsPlumb: function() {
+                    var self = this;
+                    
+                    this.jsPlumbInstance = jsPlumb.getInstance({
+                        Container: this.$refs.tableWrapper,
+                        DragOptions: { 
+                            cursor: 'pointer',
+                            containment: 'parent'
+                        },
+                        PaintStyle: {
+                            stroke: '#409EFF',
+                            strokeWidth: 2
+                        },
+                        EndpointStyle: {
+                            fill: '#409EFF',
+                            radius: 5
+                        },
+                        Endpoint: 'Dot',
+                        Connector: ['Flowchart', { 
+                            cornerRadius: 5,
+                            stub: 10
+                        }],
+                        Anchors: ['Right', 'Left', 'Top', 'Bottom']
+                    });
+                    
+                    this.addDebug('success', '✅ jsPlumb 初始化完成');
+                    
+                    this.jsPlumbInstance.bind('connection', function(info) {
+                        self.connectionCount = self.jsPlumbInstance.getConnections().length;
+                        self.updateNodeConnectionCount();
+                    });
+                    
+                    this.jsPlumbInstance.bind('connectionDetached', function(info) {
+                        self.connectionCount = self.jsPlumbInstance.getConnections().length;
+                        self.updateNodeConnectionCount();
+                    });
+                },
+                
+                updateNodeConnectionCount: function() {
+                    var self = this;
+                    var counts = {};
+                    
+                    var connections = this.jsPlumbInstance.getConnections();
+                    connections.forEach(function(conn) {
+                        var sourceId = conn.sourceId;
+                        var targetId = conn.targetId;
+                        counts[sourceId] = (counts[sourceId] || 0) + 1;
+                        counts[targetId] = (counts[targetId] || 0) + 1;
+                    });
+                    
+                    this.nodeConnectionCount = counts;
+                },
+                
+                drawConnections: function() {
+                    if (!this.jsPlumbInstance) {
+                        this.addDebug('error', '❌ jsPlumb 未初始化');
+                        return;
+                    }
+                    
+                    var self = this;
+                    
+                    this.jsPlumbInstance.deleteEveryConnection();
+                    this.connectionCount = 0;
+                    this.nodeConnectionCount = {};
+                    
+                    this.addDebug('info', '📐 开始绘制连线，共 ' + this.connectionRules.length + ' 条规则');
+                    
+                    var successCount = 0;
+                    var failCount = 0;
+                    
+                    this.connectionRules.forEach(function(rule, index) {
+                        var fromId = rule.from;
+                        var toId = rule.to;
+                        var color = rule.color || '#409EFF';
+                        var label = rule.label || '';
+                        
+                        if (!self.nodeMap[fromId]) {
+                            self.addDebug('error', '❌ 源节点不存在: ' + fromId);
+                            failCount++;
+                            return;
+                        }
+                        if (!self.nodeMap[toId]) {
+                            self.addDebug('error', '❌ 目标节点不存在: ' + toId);
+                            failCount++;
+                            return;
+                        }
+                        
+                        var fromEl = document.getElementById(fromId);
+                        var toEl = document.getElementById(toId);
+                        
+                        if (!fromEl) {
+                            self.addDebug('error', '❌ 源 DOM 元素不存在: ' + fromId);
+                            failCount++;
+                            return;
+                        }
+                        if (!toEl) {
+                            self.addDebug('error', '❌ 目标 DOM 元素不存在: ' + toId);
+                            failCount++;
+                            return;
+                        }
+                        
+                        try {
+                            var overlays = [];
+                            if (label) {
+                                overlays.push(['Label', {
+                                    label: label,
+                                    location: 0.5,
+                                    cssClass: 'connection-label',
+                                    color: color,
+                                    fontSize: '10px',
+                                    backgroundColor: 'white',
+                                    padding: '2px 6px',
+                                    borderRadius: '3px',
+                                    border: '1px solid ' + color
+                                }]);
+                            }
+                            overlays.push(['Arrow', {
+                                location: 1,
+                                width: 12,
+                                length: 10,
+                                foldback: 0.8,
+                                paintStyle: { stroke: color }
+                            }]);
+                            
+                            var conn = self.jsPlumbInstance.connect({
+                                source: fromId,
+                                target: toId,
+                                anchors: ['Right', 'Left'],
+                                connector: ['Flowchart', { 
+                                    cornerRadius: 5,
+                                    stub: 10
+                                }],
+                                paintStyle: {
+                                    stroke: color,
+                                    strokeWidth: 2
+                                },
+                                endpointStyle: {
+                                    fill: color,
+                                    radius: 5
+                                },
+                                overlays: overlays
+                            });
+                            
+                            if (conn) {
+                                successCount++;
+                                self.connectionCount++;
+                                self.addDebug('success', '✅ 连线 ' + (index + 1) + ' 成功: ' + fromId + ' → ' + toId + ' [' + color + ']' + (label ? ' "' + label + '"' : ''));
+                            }
+                        } catch (e) {
+                            self.addDebug('error', '❌ 创建连线失败: ' + e.message);
+                            failCount++;
+                        }
+                    });
+                    
+                    this.updateNodeConnectionCount();
+                    
+                    this.addDebug('info', '📊 连线绘制完成: 成功 ' + successCount + ' 条，失败 ' + failCount + ' 条');
+                    
+                    setTimeout(function() {
+                        self.jsPlumbInstance.repaintEverything();
+                        self.addDebug('info', '🔄 已重绘所有元素');
+                    }, 100);
+                },
+                
+                refreshAll: function() {
+                    if (this.jsPlumbInstance) {
+                        this.drawConnections();
+                    }
+                },
+                
+                handleResize: function() {
+                    if (this.jsPlumbInstance) {
+                        this.jsPlumbInstance.repaintEverything();
+                    }
+                }
+            },
+            
+            watch: {
+                nodeData: {
+                    handler: function() {
+                        this.buildNodeMap();
+                        this.$nextTick(function() {
+                            setTimeout(function() {
+                                this.drawConnections();
+                            }.bind(this), 200);
+                        }.bind(this));
+                    },
+                    deep: true
+                },
+                connectionRules: {
+                    handler: function() {
+                        this.$nextTick(function() {
+                            setTimeout(function() {
+                                this.drawConnections();
+                            }.bind(this), 200);
+                        }.bind(this));
+                    },
+                    deep: true
+                }
+            }
+        });
+    </script>
+</body>
+</html>
